@@ -216,13 +216,12 @@ hr.sep{border:0;height:1px;background:linear-gradient(90deg,rgba(200,214,242,.3)
   <div id="compass"></div>
   <div id="sheet">
     <button id="close">✕</button>
+    <div class="body"></div>
     <div class="gallery">
-      <div class="frameimg"><img alt=""></div>
-      <div class="grad"></div><div class="gcount"></div>
-      <button class="gnav p">‹</button><button class="gnav n">›</button>
+      <div class="glabel">Галерея</div>
+      <div class="gthumbs"></div>
       <div class="dots"></div>
     </div>
-    <div class="body"></div>
   </div>
 </div>
 
@@ -683,8 +682,9 @@ addEventListener('resize',()=>{fit();if(cur)placeCompass();wake();});
 
 /* ---------- КАРТОЧКА: раскрывается ИЗ маленькой звезды ---------- */
 const ov=document.getElementById('overlay'),sheet=document.getElementById('sheet'),
-      bodyEl=sheet.querySelector('.body'),gimg=sheet.querySelector('.frameimg img'),
-      dots=sheet.querySelector('.dots'),gcount=sheet.querySelector('.gcount'),
+      bodyEl=sheet.querySelector('.body'),
+      thumbs=sheet.querySelector('.gthumbs'),
+      dots=sheet.querySelector('.dots'),
       compass=document.getElementById('compass');
 let cur=null,gi=0,home=null;
 
@@ -706,6 +706,7 @@ function reveal(fromRect){
 }
 /* карточка РАСКРЫВАЕТСЯ из портрета звезды */
 function grow(fromRect){
+  if(MOBILE){ ov.classList.add('vis'); return; }   // на телефоне карточка во весь экран — просто плавное появление
   const {nx,ny,r0,R}=reveal(fromRect);
   sheet.style.clipPath=`circle(${R}px at ${nx}px ${ny}px)`;
   sheet.animate([
@@ -717,6 +718,7 @@ function grow(fromRect){
 }
 /* и СВОРАЧИВАЕТСЯ обратно в неё */
 function shrink(toRect,done){
+  if(MOBILE){ ov.classList.remove('open'); done(); return; }
   const {nx,ny,r0,R}=reveal(toRect);
   const a=sheet.animate([
     {clipPath:`circle(${R}px at ${nx}px ${ny}px)`,transform:'translate(-50%,-50%) scale(1)',opacity:1},
@@ -745,7 +747,7 @@ function open(id,fromCard=false){
   }else{
     centerOn(p);
     sheet.classList.add('swap');
-    setTimeout(()=>{render();placeCompass();bodyEl.scrollTop=0;sheet.classList.remove('swap');},230);
+    setTimeout(()=>{render();placeCompass();bodyEl.scrollTop=0;thumbs.scrollLeft=0;sheet.classList.remove('swap');},230);
   }
 }
 function close(){
@@ -825,20 +827,26 @@ function render(){
 function setPhoto(i){
   const n=cur.photos.length;
   gi=((i%n)+n)%n;                       // бесконечное листание
-  gimg.src=cur.photos[gi];
-  gimg.style.animation='none';void gimg.offsetWidth;gimg.style.animation='';
-  gcount.textContent=`Фото ${gi+1} / ${n}`;
-  dots.innerHTML=cur.photos.map((_,j)=>`<i class="${j===gi?'on':''}"></i>`).join('');
+  renderThumbs();
 }
-sheet.querySelector('.gnav.p').onclick=()=>setPhoto(gi-1);
-sheet.querySelector('.gnav.n').onclick=()=>setPhoto(gi+1);
+function renderThumbs(){
+  const n=cur.photos.length;
+  thumbs.innerHTML=cur.photos.map((src,j)=>
+    `<button class="gt${j===gi?' on':''}" data-gi="${j}" title="Фото ${j+1}"><img src="${src}" alt=""></button>`
+  ).join('');
+  thumbs.querySelectorAll('.gt').forEach(b=>b.onclick=()=>{
+    setPhoto(+b.dataset.gi); openLightbox();
+  });
+  dots.innerHTML=cur.photos.map((_,j)=>`<i class="${j===gi?'on':''}" data-d="${j}"></i>`).join('');
+  dots.querySelectorAll('i[data-d]').forEach(d=>d.onclick=()=>setPhoto(+d.dataset.d));
+}
+function openLightbox(){ lbSync(); lb.classList.add('open'); requestAnimationFrame(()=>lb.classList.add('vis')); }
 document.getElementById('close').onclick=close;
 document.getElementById('veil').onclick=close;
 
 /* фото на весь экран */
 const lb=document.getElementById('lightbox'),lbimg=lb.querySelector('img'),lbcap=lb.querySelector('.cap');
 function lbSync(){lbimg.src=cur.photos[gi];lbcap.textContent=`${cur.name} · ${cur.years} · фото ${gi+1} из ${cur.photos.length}`;}
-sheet.querySelector('.frameimg').onclick=()=>{lbSync();lb.classList.add('open');requestAnimationFrame(()=>lb.classList.add('vis'));};
 function lbClose(){lb.classList.remove('vis');setTimeout(()=>lb.classList.remove('open'),400);}
 lb.onclick=e=>{if(e.target===lb||e.target===lbimg)lbClose();};
 lb.querySelector('.lbnav.p').onclick=e=>{e.stopPropagation();setPhoto(gi-1);lbSync();};
