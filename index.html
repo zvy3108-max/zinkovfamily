@@ -91,6 +91,7 @@ body{
 #links path.glow{stroke:rgba(130,110,255,.14);stroke-width:5;stroke-dasharray:none}
 #links path.bond{stroke:rgba(196,180,255,.92);stroke-width:1.6;stroke-dasharray:2 5}
 #links path.desc{stroke:rgba(140,158,255,.72);stroke-width:1.5;stroke-dasharray:3 6}
+#links path.petlink{stroke:rgba(232,203,112,.88);stroke-width:1.35;stroke-dasharray:1 5}
 #links path.dim{opacity:.15}
 
 .node{
@@ -114,6 +115,8 @@ body{
 .node .nm{font-family:var(--serif);font-size:15.5px;line-height:1.14;margin-top:12px;color:#e5e1ff;
   text-shadow:0 2px 12px rgba(0,0,0,.8)}
 .node .yr{font-size:9.5px;letter-spacing:.16em;color:var(--dim);margin-top:5px}
+.node .pet{margin-top:4px;font-size:10px;color:#d8c98a;letter-spacing:.03em;
+  text-shadow:0 1px 8px rgba(0,0,0,.8);white-space:nowrap}
 .node .mic{position:absolute;top:22px;right:14px;width:17px;height:17px;border-radius:50%;
   background:rgba(220,230,248,.9);color:#0b0d13;font-size:8.5px;display:grid;place-items:center}
 .node:hover .halo{opacity:1;transform:translateX(-50%) scale(1.14)}
@@ -121,6 +124,14 @@ body{
   box-shadow:0 0 0 5px rgba(8,7,20,.78),0 0 30px rgba(140,130,255,.45),0 14px 34px rgba(0,0,0,.6)}
 .node.hidden{opacity:.16;pointer-events:none}
 .node.focus .ph{border-color:#fff}
+.petnode{position:absolute;width:88px;text-align:center;cursor:pointer;transform:translate(-50%,-50%);z-index:2}
+.petnode .petph{width:54px;height:54px;margin:0 auto;border-radius:50%;overflow:hidden;background:#201c2f;
+  border:1px solid rgba(232,203,112,.8);box-shadow:0 0 0 4px rgba(12,10,24,.8),0 5px 18px rgba(0,0,0,.5)}
+.petnode .petph img{width:100%;height:100%;object-fit:cover;display:block}
+.petnode .petnm{margin-top:7px;font-family:var(--serif);font-size:13px;line-height:1.05;color:#f0df9c;
+  text-shadow:0 2px 9px rgba(0,0,0,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.petnode .petspecies{margin-top:3px;font-size:8px;letter-spacing:.1em;color:#a99b62;text-transform:uppercase}
+.petnode:hover .petph,.petnode.focus .petph{border-color:#fff;box-shadow:0 0 0 4px rgba(12,10,24,.8),0 0 20px rgba(232,203,112,.45)}
 /* точка-звезда в центре узла (маркер созвездия) */
 .node::before{
   content:"";position:absolute;left:50%;top:58px;width:3px;height:3px;margin-left:-1.5px;border-radius:50%;
@@ -153,6 +164,9 @@ body{
 hr.sep{border:0;height:1px;background:linear-gradient(90deg,rgba(200,214,242,.3),transparent);margin:16px 0}
 .bio p{font-size:14px;line-height:1.75;color:#c6cddd;margin:0 0 11px;font-weight:300}
 .h6{font-size:9px;letter-spacing:.32em;text-transform:uppercase;color:var(--dim);margin:18px 0 10px}
+.ownerlink{background:none;border:0;padding:0;margin:0;font:inherit;letter-spacing:inherit;color:#cbc4f2;
+  cursor:pointer;text-decoration:underline;text-decoration-color:rgba(160,150,255,.45);text-underline-offset:3px;transition:color .2s}
+.ownerlink:hover{color:#fff;text-decoration-color:#fff}
 
 /* стили голоса, компаса направлений и полноэкранного фото — в style.css */
 </style>
@@ -202,6 +216,14 @@ hr.sep{border:0;height:1px;background:linear-gradient(90deg,rgba(200,214,242,.3)
   <div id="branchbar" class="closed"></div>
 </div>
 
+<div id="branchoverlay">
+  <div id="branchsheet">
+    <button id="branchclose">✕</button>
+    <div class="brttl">Ветви семьи</div>
+    <div id="branchmob"></div>
+  </div>
+</div>
+
 <div class="hud" id="zoomui">
   <button data-z="in" title="Приблизить">+</button>
   <button data-z="out" title="Отдалить">−</button>
@@ -209,6 +231,25 @@ hr.sep{border:0;height:1px;background:linear-gradient(90deg,rgba(200,214,242,.3)
 </div>
 <div class="hud" id="legend">
   <span><b>ЛКМ</b> — двигать небо</span><span><b>Колесо</b> — масштаб</span><span><b>Клик по звезде</b> — раскрыть</span>
+</div>
+
+<div class="hud" id="gallerybtn"><button id="galtoggle" title="Галерея фотографий">▦ Галерея</button></div>
+
+<div id="galoverlay">
+  <div id="galsheet">
+    <button id="galclose">✕</button>
+    <div class="galhead">
+      <div class="galttl">Галерея</div>
+      <div class="galfilters"></div>
+      <div class="galcount"></div>
+      <div id="galedit" hidden>
+        <select id="galaddtarget"></select>
+        <input id="galaddtag" placeholder="тег или подпись">
+        <button id="galadd" type="button">+ Фото</button>
+      </div>
+    </div>
+    <div class="galgrid"></div>
+  </div>
 </div>
 
 <div id="overlay">
@@ -220,12 +261,15 @@ hr.sep{border:0;height:1px;background:linear-gradient(90deg,rgba(200,214,242,.3)
     <div class="gallery">
       <div class="glabel">Галерея</div>
       <div class="gthumbs"></div>
-      <div class="dots"></div>
     </div>
   </div>
 </div>
 
 <div id="lightbox">
+  <div class="lbnav p">‹</div><img alt=""><div class="lbnav n">›</div><div class="cap"></div>
+</div>
+
+<div id="lbgal">
   <div class="lbnav p">‹</div><img alt=""><div class="lbnav n">›</div><div class="cap"></div>
 </div>
 
@@ -248,6 +292,7 @@ const STORE_KEY = 'zinkovy.tree.v1';    // ключ автосохранения
 if(typeof PEOPLE==='undefined'){window.PEOPLE=[];console.error('Не найден data.js');}
 if(typeof UNIONS==='undefined'){window.UNIONS=[];}
 if(typeof BRANCHES==='undefined'){window.BRANCHES=[];}
+if(typeof PETS==='undefined'){window.PETS=[];}
 if(typeof SITE==='undefined'){window.SITE={surname:'Семья',subtitle:'Созвездие семьи',logo:'',mediaBase:'pic/'};}
 
 /* ---------- заголовок и лого ---------- */
@@ -293,7 +338,7 @@ function placeholder(name,i){
 }
 
 /* исходные данные запоминаем до построения модели — для кнопки «Сброс» */
-const DEFAULT_DATA=JSON.parse(JSON.stringify({people:PEOPLE,unions:UNIONS,branches:BRANCHES,site:SITE}));
+const DEFAULT_DATA=JSON.parse(JSON.stringify({people:PEOPLE,unions:UNIONS,branches:BRANCHES,pets:PETS,site:SITE}));
 
 /* ---------- хранение: правки из редактора живут в браузере ---------- */
 function exportData(){
@@ -301,14 +346,16 @@ function exportData(){
     people:PEOPLE.map(p=>({
       id:p.id, name:p.name, years:p.years||'',
       x:Math.round(p.x), y:Math.round(p.y),
-      place:p.place||'', role:p.role||'',
+      place:p.place||'', role:p.role||'', pet:p.pet||'',
       bio:(p.bio||[]).slice(),
       branch:p.branch||'', card:p.card!==false,
       photos:p.autoPhotos?[]:(p.photos||[]).slice(),   // сгенерированные заглушки не сохраняем
+      photoTags:p.autoPhotos?[]:(p.photoTags||[]).slice(),
       voices:(p.voices||[]).map(v=>({title:v.title||'',url:v.url||'',dur:v.dur||''}))
     })),
     unions:UNIONS.map(u=>({a:u.a,b:u.b||null,children:(u.children||[]).slice()})),
     branches:BRANCHES.map(b=>({id:b.id,title:b.title,color:b.color})),
+    pets:PETS.map(p=>({id:p.id,name:p.name||'',species:p.species||'',owner:p.owner||'',x:Math.round(p.x),y:Math.round(p.y),manualPos:p.manualPos||false,bio:(p.bio||[]).slice(),photos:(p.photos||[]).slice(),photoTags:(p.photoTags||[]).slice()})),
     site:{surname:SITE.surname||'',subtitle:SITE.subtitle||'',logo:SITE.logo||'',mediaBase:SITE.mediaBase||''}
   };
 }
@@ -317,6 +364,7 @@ function loadData(d){
   PEOPLE=JSON.parse(JSON.stringify(src.people||[]));
   UNIONS=JSON.parse(JSON.stringify(src.unions||[]));
   if(src.branches) BRANCHES=JSON.parse(JSON.stringify(src.branches));
+  PETS=JSON.parse(JSON.stringify(src.pets||[]));
   if(src.site) SITE=Object.assign({},SITE,src.site);
   applySite();
 }
@@ -329,8 +377,13 @@ function persist(){
   try{
     const d=exportData(), light=s=>(typeof s==='string'&&s.startsWith('data:'))?'':s;
     d.people.forEach(p=>{
-      p.photos=(p.photos||[]).map(light).filter(Boolean);
+      const kept=(p.photos||[]).map((src,i)=>({src:light(src),tag:(p.photoTags||[])[i]||''})).filter(x=>x.src);
+      p.photos=kept.map(x=>x.src); p.photoTags=kept.map(x=>x.tag);
       p.voices=(p.voices||[]).map(v=>Object.assign({},v,{url:light(v.url)}));
+    });
+    (d.pets||[]).forEach(p=>{
+      const kept=(p.photos||[]).map((src,i)=>({src:light(src),tag:(p.photoTags||[])[i]||''})).filter(x=>x.src);
+      p.photos=kept.map(x=>x.src); p.photoTags=kept.map(x=>x.tag);
     });
     if(d.site) d.site.logo=light(d.site.logo);
     localStorage.setItem(STORE_KEY,JSON.stringify(d));
@@ -349,21 +402,49 @@ function persist(){
 })();
 
 /* ---------- модель + родственные связи ---------- */
-const byId={};
+const byId={},petById={};
 const female=n=>/[ая]$/.test(String(n||'').split(' ')[0]);
 const uniq=a=>[...new Set(a)];
 function buildModel(){
   Object.keys(byId).forEach(k=>delete byId[k]);
+  Object.keys(petById).forEach(k=>delete petById[k]);
   PEOPLE.forEach(p=>{
     if(!Array.isArray(p.bio))    p.bio=p.bio?[String(p.bio)]:[];
     if(!Array.isArray(p.voices)) p.voices=[];
+    if(!Array.isArray(p.photoTags)) p.photoTags=[];
     if(p.card===undefined)       p.card=true;          // false → звезда без карточки
     if(p.branch===undefined)     p.branch='';
+    if(p.pet===undefined)        p.pet='';             // питомец, показывается рядом с хозяином
     if(!Array.isArray(p.photos)||!p.photos.length){
       p.photos=[0,1,2,3].map(i=>placeholder(p.name,i)); p.autoPhotos=true;
     }else p.autoPhotos=false;
+    p.photoTags=p.photoTags.slice(0,p.photos.length);
+    while(p.photoTags.length<p.photos.length)p.photoTags.push('');
     p.rel={parents:[],children:[],spouse:[],sibs:[]};
     byId[p.id]=p;
+  });
+  /* Подхватываем старое текстовое поле «питомец» как полноценного питомца. */
+  PEOPLE.forEach(p=>{
+    if(p.pet&&!PETS.some(x=>x.owner===p.id&&x.name===p.pet)){
+      let n=1; while(PETS.some(x=>x.id==='legacy-pet'+n))n++;
+      PETS.push({id:'legacy-pet'+n,name:p.pet,species:'',owner:p.id,bio:[],photos:[],photoTags:[]});
+    }
+  });
+PETS.forEach((p,i)=>{
+    if(!p.id){p.id='pet'+(i+1);}
+    if(!p.name)p.name='Питомец';
+    if(!p.species)p.species='';
+    if(!p.owner)p.owner='';
+    if(p.manualPos===undefined) p.manualPos=false;
+    if(p.x===undefined)p.x=NaN;if(p.y===undefined)p.y=NaN;
+    if(!Array.isArray(p.bio))p.bio=p.bio?[String(p.bio)]:[];
+    if(!Array.isArray(p.photoTags))p.photoTags=[];
+    if(!Array.isArray(p.photos)||!p.photos.length){
+      p.photos=[petPlaceholder(p.name)]; p.autoPhotos=true;
+    }else p.autoPhotos=false;
+    p.photoTags=p.photoTags.slice(0,p.photos.length);
+    while(p.photoTags.length<p.photos.length)p.photoTags.push('');
+    petById[p.id]=p;
   });
   UNIONS.forEach(u=>{
     if(!Array.isArray(u.children)) u.children=[];
@@ -376,6 +457,28 @@ function buildModel(){
     u.children.forEach(c=>u.children.forEach(d=>{if(c!==d&&byId[c])byId[c].rel.sibs.push(d)}));
   });
   PEOPLE.forEach(p=>['parents','children','spouse','sibs'].forEach(k=>p.rel[k]=uniq(p.rel[k])));
+  positionPets();
+}
+function petPlaceholder(name){
+  const safe=String(name||'Питомец').replace(/[&<>"']/g,'');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600">
+    <defs><radialGradient id="g"><stop stop-color="#e8d78d"/><stop offset="1" stop-color="#5d4a2a"/></radialGradient></defs>
+    <rect width="600" height="600" rx="300" fill="#18152c"/><circle cx="300" cy="300" r="190" fill="url(#g)" opacity=".75"/>
+    <g fill="#171329"><circle cx="300" cy="335" r="65"/><circle cx="215" cy="245" r="45"/><circle cx="385" cy="245" r="45"/>
+    <circle cx="260" cy="320" r="12" fill="#f7f0c5"/><circle cx="340" cy="320" r="12" fill="#f7f0c5"/></g>
+    <text x="300" y="510" text-anchor="middle" font-family="Georgia,serif" font-size="34" fill="#fff" opacity=".75">${safe}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+function petsOf(id){return PETS.filter(p=>p.owner===id);}
+function positionPets(){
+  const seen={};
+  PETS.forEach(p=>{
+    const owner=byId[p.owner];
+    if(!owner){p.x=NaN;p.y=NaN;return;}
+    const i=seen[p.owner]||0, total=petsOf(p.owner).length; seen[p.owner]=i+1;
+    if(p.manualPos) return;
+    p.x=owner.x+145; p.y=owner.y+(i-(total-1)/2)*72;
+  });
 }
 function relLabel(from,to){
   const t=byId[to];
@@ -402,6 +505,7 @@ const regSvg=document.getElementById('regions');
 function measure(){
   let a=1e9,b=1e9,c=-1e9,d=-1e9;
   PEOPLE.forEach(p=>{a=Math.min(a,p.x);c=Math.max(c,p.x);b=Math.min(b,p.y);d=Math.max(d,p.y);});
+  PETS.forEach(p=>{if(Number.isFinite(p.x)&&Number.isFinite(p.y)){a=Math.min(a,p.x);c=Math.max(c,p.x);b=Math.min(b,p.y);d=Math.max(d,p.y);}});
   if(!PEOPLE.length){a=b=-200;c=d=200;}
   B.minX=a;B.minY=b;B.maxX=c;B.maxY=d;
   vb.x=a-PAD; vb.y=b-PAD; vb.w=(c-a)+PAD*2; vb.h=(d-b)+PAD*2;
@@ -466,16 +570,32 @@ function drawRegions(){
   renderLegend();
 }
 
-/* ---------- панель ветвей слева: скрытие (ЛКМ) и приближение (ПКМ) ---------- */
+/* ---------- панель ветвей: скрытие и подсветка ---------- */
 function renderLegend(){
   const bar=document.getElementById('branchbar'); if(!bar)return;
   bar.innerHTML=BRANCHES.map(br=>{
     const n=memberOf(br.id).length;
     const off=hiddenBr.has(br.id), foc=focusBr===br.id;
-    return `<span class="bitem${off?' off':''}${foc?' foc':''}" data-b="${br.id}"
-      style="--c:${br.color}" title="ЛКМ — скрыть/показать, ПКМ — приблизить и подсветить">
-      <i style="background:${br.color}"></i><b>${br.title}</b><em>${n}</em></span>`;
+    return `<span class="bitem${off?' off':''}${foc?' foc':''}" data-b="${br.id}" style="--c:${br.color}">
+      <i style="background:${br.color}"></i><b>${br.title}</b><em>${n}</em>
+      <button class="bact hide" data-act="hide" title="${off?'Показать':'Скрыть'} ветвь">${off?'◉':'👁'}</button>
+      <button class="bact foc" data-act="foc" title="Приблизить и подсветить">◎</button>
+    </span>`;
   }).join('')||'<span class="bitem">ветвей нет</span>';
+  /* мобильное меню ветвей */
+  const mob=document.getElementById('branchmob'); if(!mob)return;
+  mob.innerHTML=BRANCHES.map(br=>{
+    const n=memberOf(br.id).length;
+    const off=hiddenBr.has(br.id), foc=focusBr===br.id;
+    return `<div class="brow${off?' off':''}${foc?' foc':''}" style="--c:${br.color}">
+      <i style="background:${br.color}"></i><b>${br.title}</b><em>${n}</em>
+      <button class="bact hide${off?' on':''}" data-act="hide" data-b="${br.id}">${off?'Показать':'Скрыть'}</button>
+      <button class="bact foc" data-act="foc" data-b="${br.id}">Выделить</button>
+    </div>`;
+  }).join('')||'<div class="hint">ветвей нет</div>';
+  mob.querySelectorAll('.bact').forEach(b=>b.onclick=()=>{
+    b.dataset.act==='hide'?toggleBranch(b.dataset.b):focusBranch(b.dataset.b);
+  });
 }
 function fitBranch(id){
   const mem=memberOf(id); if(!mem.length)return;
@@ -487,29 +607,39 @@ function fitBranch(id){
   S.tx=-((x1+x2)/2)*S.tk; S.ty=-((y1+y2)/2)*S.tk;
   wake();
 }
+function toggleBranch(id){
+  if(focusBr) focusBr=null;
+  hiddenBr.has(id)?hiddenBr.delete(id):hiddenBr.add(id);
+  rebuild(false);
+}
+function focusBranch(id){
+  if(focusBr===id){focusBr=null;fit();}
+  else{focusBr=id;hiddenBr.delete(id);fitBranch(id);}
+  rebuild(false);
+}
 /* список по умолчанию свёрнут */
 document.addEventListener('click',e=>{
   if(e.target.closest('#branchtoggle')){
+    if(MOBILE){
+      const bo=document.getElementById('branchoverlay');
+      bo.classList.add('open'); requestAnimationFrame(()=>bo.classList.add('vis'));
+      return;
+    }
     const bar=document.getElementById('branchbar');
     bar.classList.toggle('closed');
     document.getElementById('branchtoggle').classList.toggle('open',!bar.classList.contains('closed'));
     return;
   }
-  const it=e.target.closest('#branchbar .bitem[data-b]'); if(!it)return;
-  const id=it.dataset.b;
-  if(focusBr) focusBr=null;                       // клик по любой ветви сбрасывает «подсветку»
-  hiddenBr.has(id)?hiddenBr.delete(id):hiddenBr.add(id);
-  if(hiddenBr.has(id)&&focusBr===id) focusBr=null;
-  rebuild(false);
+  const act=e.target.closest('#branchbar .bact[data-act]');
+  if(act){
+    const id=act.closest('.bitem').dataset.b;
+    act.dataset.act==='hide'?toggleBranch(id):focusBranch(id);
+    return;
+  }
 });
-document.addEventListener('contextmenu',e=>{
-  const it=e.target.closest('#branchbar .bitem[data-b]'); if(!it)return;
-  e.preventDefault();
-  const id=it.dataset.b;
-  if(focusBr===id){focusBr=null;fit();}
-  else{focusBr=id;hiddenBr.delete(id);fitBranch(id);}
-  rebuild(false);
-});
+const branchOv=document.getElementById('branchoverlay');
+document.getElementById('branchclose').onclick=()=>{ branchOv.classList.remove('vis'); setTimeout(()=>branchOv.classList.remove('open'),300); };
+branchOv.addEventListener('click',e=>{ if(e.target===branchOv){ branchOv.classList.remove('vis'); setTimeout(()=>branchOv.classList.remove('open'),300); } });
 /* звёзды рисуются один раз на большой площади — при правках не «пересыпаются» */
 (function drawSky(){
   const box={x:-4200,y:-3200,w:8400,h:8400};
@@ -548,6 +678,11 @@ function drawLinks(anim){
       paths+=link(mid,C,'desc'+(aHid||isHidden(C)?' dim':''));         // к потомку — прямой луч
     });
   });
+  PETS.forEach(p=>{
+    const owner=byId[p.owner];
+    if(!owner||!Number.isFinite(p.x)||!Number.isFinite(p.y)||isHidden(owner))return;
+    paths+=link(owner,p,'petlink');
+  });
   linksSvg.innerHTML=paths;
   if(anim)[...linksSvg.querySelectorAll('path')].forEach((p,i)=>{
     p.animate([{opacity:0},{opacity:1}],
@@ -557,7 +692,7 @@ function drawLinks(anim){
 
 /* ---------- звёзды-персоны ---------- */
 function drawNodes(anim){
-  world.querySelectorAll('.node').forEach(n=>n.remove());
+  world.querySelectorAll('.node,.petnode').forEach(n=>n.remove());
   const frag=document.createDocumentFragment();        // одна вставка вместо N
   PEOPLE.forEach((p,i)=>{
     const el=document.createElement('div');
@@ -572,9 +707,24 @@ function drawNodes(anim){
       ${plain?'<div class="dot"></div>':
         `<div class="ph"><img src="${p.photos[0]}" alt="${p.name}" draggable="false"></div>`}
       <div class="nm">${p.name}</div><div class="yr">${p.years||''}</div>
-      ${!plain&&p.voices.length?'<div class="mic">♪</div>':''}`;
+      ${!plain&&p.voices.length?'<div class="mic">♪</div>':''}
+      ${PETS.filter(x=>x.owner===p.id).map(x=>`<div class="pet" title="Питомец">🐾 ${x.name}</div>`).join('')}`;
     if(anim) el.animate([{opacity:0},{opacity:1}],
       {duration:900,delay:500+i*60,easing:'ease-out',fill:'backwards'});
+    frag.appendChild(el);
+    p.el=el;
+  });
+  PETS.forEach((p,i)=>{
+    const owner=byId[p.owner];
+    if(!owner||isHidden(owner)||!Number.isFinite(p.x)||!Number.isFinite(p.y))return;
+    const el=document.createElement('div');
+    el.className='petnode';
+    el.dataset.pet=p.id;
+    el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    el.innerHTML=`<div class="petph"><img src="${p.photos[0]}" alt="${p.name}" draggable="false"></div>
+      <div class="petnm">${p.name}</div>${p.species?`<div class="petspecies">${p.species}</div>`:''}`;
+    if(anim)el.animate([{opacity:0},{opacity:1}],
+      {duration:700,delay:500+i*45,easing:'ease-out',fill:'backwards'});
     frag.appendChild(el);
     p.el=el;
   });
@@ -600,7 +750,7 @@ function fit(anim=true){
   const k=Math.min(r.width/(vb.w*.98),r.height/(vb.h*1.02),1.05);
   S.tk=Math.max(MINK,Math.min(MAXK,k));
   S.tx=-((B.minX+B.maxX)/2)*S.tk; S.ty=-((B.minY+B.maxY)/2)*S.tk;
-  if(!anim){S.x=S.tx;S.y=S.ty;S.k=S.tk;world.style.transform=`translate3d(${S.x.toFixed(2)}px,${S.y.toFixed(2)}px,0) scale(${S.k.toFixed(4)})`;}
+  if(!anim){S.x=S.tx;S.y=S.ty;S.k=S.tk;world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;}
   else wake();
 }
 function zoomAt(sx,sy,f){
@@ -619,16 +769,14 @@ function loop(){
   const e=.15, moving=Math.abs(S.tx-S.x)+Math.abs(S.ty-S.y)>.15||Math.abs(S.tk-S.k)>.0004;
   if(moving){
     S.x+=(S.tx-S.x)*e; S.y+=(S.ty-S.y)*e; S.k+=(S.tk-S.k)*e;
-    world.style.transform=`translate3d(${S.x.toFixed(2)}px,${S.y.toFixed(2)}px,0) scale(${S.k.toFixed(4)})`;
+    world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;
     if(!loop.on) loop.on=true;
   }else if(!loop.settled){
-    /* доводим до точных значений и «отпускаем» слой, чтобы текст/фото стали резкими */
     S.x=S.tx;S.y=S.ty;S.k=S.tk;
-    world.style.transform=`translate3d(${S.x.toFixed(2)}px,${S.y.toFixed(2)}px,0) scale(${S.k.toFixed(4)})`;
+    world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;
     loop.settled=true;
   }
   if(moving) loop.settled=false;
-  /* кадры рисуем только пока карта двигается — в покое цикл засыпает */
   if(moving || !loop.settled){ requestAnimationFrame(loop); loop.on=true; }
   else loop.on=false;
 }
@@ -644,12 +792,14 @@ vp.addEventListener('pointerdown',e=>{
   e.preventDefault();          // чтобы при протяжке не выделялся текст карточек
   vp.setPointerCapture(e.pointerId);
   if(hook('pointerdown',e))return;            // редактор потащил звезду
-  drag={sx:e.clientX,sy:e.clientY,ox:S.tx,oy:S.ty,moved:0,id:e.target.closest('.node')?.dataset.id};
+  drag={sx:e.clientX,sy:e.clientY,ox:S.tx,oy:S.ty,moved:0,
+    id:e.target.closest('.node')?.dataset.id,
+    petId:e.target.closest('.petnode')?.dataset.pet};
   vp.classList.add('grabbing');
 });
 vp.addEventListener('pointermove',e=>{
   if(hook('pointermove',e))return;
-  if(!drag)return;
+  if(!drag||pinching)return;
   const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
   drag.moved=Math.max(drag.moved,Math.abs(dx)+Math.abs(dy));
   S.tx=drag.ox+dx; S.ty=drag.oy+dy;
@@ -658,7 +808,9 @@ vp.addEventListener('pointermove',e=>{
 vp.addEventListener('pointerup',e=>{
   vp.classList.remove('grabbing');
   if(hook('pointerup',e)){drag=null;return;}
-  if(drag&&drag.moved<6&&drag.id){
+  if(drag&&drag.moved<6&&drag.petId){
+    if(!hook('pickPet',drag.petId)) openPet(drag.petId);
+  }else if(drag&&drag.moved<6&&drag.id){
     if(!hook('pick',drag.id)) open(drag.id);  // в режиме правки клик открывает форму, а не карточку
   }
   drag=null;
@@ -672,21 +824,32 @@ document.getElementById('zoomui').addEventListener('click',e=>{
   if(z==='out')zoomAt(r.width/2,r.height/2,1/1.35);
   if(z==='fit')fit();
 });
-let pinch=null;
-vp.addEventListener('touchstart',e=>{if(e.touches.length===2){const[a,b]=e.touches;pinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}},{passive:true});
+let pinch=null,pinching=false;
+vp.addEventListener('touchstart',e=>{if(e.touches.length===2){const[a,b]=e.touches;pinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);pinching=true;}},{passive:true});
 vp.addEventListener('touchmove',e=>{
   if(e.touches.length===2&&pinch){const[a,b]=e.touches,d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-    zoomAt((a.clientX+b.clientX)/2,(a.clientY+b.clientY)/2,d/pinch);pinch=d;e.preventDefault();}},{passive:false});
-vp.addEventListener('touchend',()=>{pinch=null});
+    zoomAt((a.clientX+b.clientX)/2,(a.clientY+b.clientY)/2,d/pinch);pinch=d;e.preventDefault();pinching=true;}},{passive:false});
+vp.addEventListener('touchend',()=>{pinch=null;setTimeout(()=>{pinching=false},100);});
 addEventListener('resize',()=>{fit();if(cur)placeCompass();wake();});
 
 /* ---------- КАРТОЧКА: раскрывается ИЗ маленькой звезды ---------- */
 const ov=document.getElementById('overlay'),sheet=document.getElementById('sheet'),
-      bodyEl=sheet.querySelector('.body'),
+  bodyEl=sheet.querySelector('.body'),
       thumbs=sheet.querySelector('.gthumbs'),
-      dots=sheet.querySelector('.dots'),
       compass=document.getElementById('compass');
-let cur=null,gi=0,home=null;
+let cur=null,curPet=null,gi=0,home=null;
+
+function activeCard(){return cur||curPet;}
+function activePhotos(){
+  const p=activeCard();
+  if(!p)return [];
+  return cur?realPhotos(p):(p.photos||[]).slice();
+}
+function petRect(p){
+  const box=p.el.querySelector('.petph')||p.el;
+  const r=box.getBoundingClientRect();
+  return r.width?r:{left:innerWidth/2-30,top:innerHeight/2-30,width:60,height:60};
+}
 
 function nodeRect(p){
   const box=p.el.querySelector('.ph')||p.el.querySelector('.dot')||p.el;
@@ -730,10 +893,10 @@ function shrink(toRect,done){
 function open(id,fromCard=false){
   const p=byId[id]; if(!p)return;
   if(p.card===false||!p.el||isHidden(p))return;   // карточка отключена, ветвь скрыта либо нет узла
-  const first=!cur;
+  const first=!cur&&!curPet;
   const r=nodeRect(p);
-  cur=p; gi=0;
-  document.querySelectorAll('.node.focus').forEach(n=>n.classList.remove('focus'));
+  cur=p; curPet=null; gi=0;
+  document.querySelectorAll('.node.focus,.petnode.focus').forEach(n=>n.classList.remove('focus'));
   p.el.classList.add('focus');
 
   if(first){
@@ -750,15 +913,37 @@ function open(id,fromCard=false){
     setTimeout(()=>{render();placeCompass();bodyEl.scrollTop=0;thumbs.scrollLeft=0;sheet.classList.remove('swap');},230);
   }
 }
+function openPet(id,fromCard=false){
+  const p=petById[id]; if(!p||!p.el)return;
+  const first=!cur&&!curPet;
+  const r=petRect(p);
+  cur=null; curPet=p; gi=0;
+  document.querySelectorAll('.node.focus,.petnode.focus').forEach(n=>n.classList.remove('focus'));
+  p.el.classList.add('focus');
+  compass.innerHTML='';
+  if(first){
+    home={x:S.tx,y:S.ty,k:S.tk};
+    centerOn(p,S.tk*.9);
+    vp.classList.add('dimmed');
+    document.querySelectorAll('.hud').forEach(h=>h.classList.add('hide'));
+    ov.classList.add('open');
+    renderPet();
+    requestAnimationFrame(()=>{ov.classList.add('vis');grow(r);});
+  }else{
+    centerOn(p);
+    sheet.classList.add('swap');
+    setTimeout(()=>{renderPet();bodyEl.scrollTop=0;thumbs.scrollLeft=0;sheet.classList.remove('swap');},230);
+  }
+}
 function close(){
-  const r=cur?nodeRect(cur):null;
+  const r=cur?nodeRect(cur):curPet?petRect(curPet):null;
   ov.classList.remove('vis');
   if(r) shrink(r,()=>ov.classList.remove('open')); else ov.classList.remove('open');
   vp.classList.remove('dimmed');
   document.querySelectorAll('.hud').forEach(h=>h.classList.remove('hide'));
-  document.querySelectorAll('.node.focus').forEach(n=>n.classList.remove('focus'));
+  document.querySelectorAll('.node.focus,.petnode.focus').forEach(n=>n.classList.remove('focus'));
   if(home){S.tx=home.x;S.ty=home.y;S.tk=home.k;home=null;}
-  cur=null; stopAllVoices();
+  cur=null; curPet=null; stopAllVoices();
 }
 
 /* ---------- 8 направлений движения по древу ---------- */
@@ -815,38 +1000,173 @@ function stepDir(key){
 /* ---------- содержимое карточки ---------- */
 function render(){
   const p=cur;
-  setPhoto(0);
+  gi=0;
   bodyEl.innerHTML=`
     <div class="kicker">${p.role||'Звезда рода'}</div>
     <div class="fio">${p.name}</div>
     <div class="meta"><span>${p.years}</span>${p.place?`<span>${p.place}</span>`:''}${p.voices.length?`<span>${p.voices.length} звукозапис${p.voices.length===1?'ь':'и'}</span>`:''}</div>
+    ${PETS.filter(x=>x.owner===p.id).length?`<div class="meta" style="margin-top:6px"><span>🐾 ${PETS.filter(x=>x.owner===p.id).map(x=>x.name).join(', ')}</span></div>`:''}
     <hr class="sep">
     <div class="bio">${p.bio.map(t=>`<p>${t}</p>`).join('')}</div>
+    ${petsOf(p.id).length?`<div class="h6">Питомцы</div>${petsOf(p.id).map((pet,i)=>petCardHTML(pet,i)).join('')}`:''}
     ${p.voices.length?`<div class="h6">Голос</div>${p.voices.map((v,i)=>voiceHTML(v,i)).join('')}`:''}`;
+  renderThumbs();
 }
-function setPhoto(i){
-  const n=cur.photos.length;
-  gi=((i%n)+n)%n;                       // бесконечное листание
+function petCardHTML(pet,i){
+  return `<div class="petcard" data-pet-card="${pet.id}">
+    <button class="petcard-title" data-open-pet="${pet.id}">🐾 ${pet.name}${pet.species?` <small>${pet.species}</small>`:''}</button>
+    ${(pet.bio||[]).map(t=>`<p>${t}</p>`).join('')}
+    ${(pet.photos||[]).length?`<div class="petcard-photos">${pet.photos.slice(0,5).map((src,j)=>`<button class="petphoto" data-pet-photo="${pet.id}" data-pet-index="${j}"><img src="${src}" alt="${pet.name}"></button>`).join('')}</div>`:''}
+  </div>`;
+}
+function renderPet(){
+  const p=curPet, owner=byId[p.owner];
+  const backable=owner&&owner.card!==false&&!isHidden(owner)&&owner.el;
+  bodyEl.innerHTML=`
+    <div class="kicker">Питомец${p.species?` · ${p.species}`:''}</div>
+    <div class="fio">🐾 ${p.name}</div>
+    <div class="meta">${owner?`<span>Хозяин: ${backable?`<button class="ownerlink" data-open-owner="${owner.id}">${owner.name}</button>`:owner.name}</span>`:''}</div>
+    <hr class="sep">
+    <div class="bio">${(p.bio||[]).map(t=>`<p>${t}</p>`).join('')}</div>`;
   renderThumbs();
 }
 function renderThumbs(){
-  const n=cur.photos.length;
-  thumbs.innerHTML=cur.photos.map((src,j)=>
+  const photos=activePhotos();
+  const MAX=5;
+  const shown=photos.slice(0,MAX);
+  thumbs.innerHTML=shown.map((src,j)=>
     `<button class="gt${j===gi?' on':''}" data-gi="${j}" title="Фото ${j+1}"><img src="${src}" alt=""></button>`
-  ).join('');
-  thumbs.querySelectorAll('.gt').forEach(b=>b.onclick=()=>{
+  ).join('') + (photos.length>MAX?`<button class="gt more" id="gtmore" title="Все фото"><span>+${photos.length-MAX}</span></button>`:'');
+  thumbs.querySelectorAll('.gt[data-gi]').forEach(b=>b.onclick=()=>{
     setPhoto(+b.dataset.gi); openLightbox();
   });
-  dots.innerHTML=cur.photos.map((_,j)=>`<i class="${j===gi?'on':''}" data-d="${j}"></i>`).join('');
-  dots.querySelectorAll('i[data-d]').forEach(d=>d.onclick=()=>setPhoto(+d.dataset.d));
+  const more=thumbs.querySelector('#gtmore');
+  if(more) more.onclick=()=>openGallery(null, activeCard()?activeCard().id:null);
 }
-function openLightbox(){ lbSync(); lb.classList.add('open'); requestAnimationFrame(()=>lb.classList.add('vis')); }
+function setPhoto(i){
+  const photos=activePhotos();
+  const n=photos.length;
+  if(!n)return;
+  gi=((i%n)+n)%n;                       // бесконечное листание
+  renderThumbs();
+}
+function openLightbox(){
+  const photos=activePhotos(); if(!photos.length)return;
+  lbSync(); lb.classList.add('open'); requestAnimationFrame(()=>lb.classList.add('vis'));
+}
 document.getElementById('close').onclick=close;
 document.getElementById('veil').onclick=close;
+bodyEl.addEventListener('click',e=>{
+  const ownerBtn=e.target.closest('[data-open-owner]');
+  if(ownerBtn){open(ownerBtn.dataset.openOwner,true);return;}
+  const petButton=e.target.closest('[data-open-pet]');
+  if(petButton){openPet(petButton.dataset.openPet);return;}
+  const b=e.target.closest('[data-pet-photo]');
+  if(b){
+    const p=petById[b.dataset.petPhoto];
+    if(p)openPetLightbox(p,+b.dataset.petIndex);
+  }
+});
+
+/* ---------- ГЛОБАЛЬНАЯ ГАЛЕРЕЯ: все фото, фильтр по ветвям и людям ---------- */
+const galOv=document.getElementById('galoverlay'),
+      galSheet=document.getElementById('galsheet'),
+      galGrid=galSheet.querySelector('.galgrid'),
+      galFilters=galSheet.querySelector('.galfilters');
+let galBranch=null, galPerson=null;
+const realPhotos=p=>(p.autoPhotos?[]:(p.photos||[]).slice());
+
+function galleryItems(){
+  let out=[];
+  PEOPLE.forEach(p=>{
+    if(isHidden(p)||p.card===false)return;   // только те, у кого включена карточка
+    const phs=realPhotos(p);
+    phs.forEach((src,i)=>{
+      out.push({person:p.id,name:p.name,branch:p.branch,src,idx:i,tag:(p.photoTags||[])[i]||''});
+    });
+  });
+  PETS.forEach(p=>{
+    const owner=byId[p.owner];
+    if(!owner||owner.card===false||isHidden(owner))return;
+    (p.autoPhotos?[]:(p.photos||[])).forEach((src,i)=>{
+      out.push({person:p.id,name:'🐾 '+p.name,branch:owner.branch,src,idx:i,tag:(p.photoTags||[])[i]||''});
+    });
+  });
+  return out;
+}
+function openGallery(branch, person){
+  galBranch=branch||null; galPerson=person||null;
+  renderGallery();
+  galOv.classList.add('open');
+  requestAnimationFrame(()=>galOv.classList.add('vis'));
+}
+function closeGallery(){ galOv.classList.remove('vis'); setTimeout(()=>galOv.classList.remove('open'),350); }
+let gItems=[], gIdx=0;
+function renderGallery(){
+  /* фильтры: по ветвям и по людям */
+  const brOpts=BRANCHES.map(b=>`<button class="gf${galBranch===b.id?' on':''}" data-b="${b.id}">${b.title}</button>`).join('');
+  const personOpts=PEOPLE.filter(p=>p.card!==false).map(p=>
+    `<option value="${p.id}" ${galPerson===p.id?'selected':''}>${p.name}</option>`).join('')+
+    PETS.filter(p=>{const owner=byId[p.owner];return owner&&owner.card!==false;}).map(p=>
+      `<option value="${p.id}" ${galPerson===p.id?'selected':''}>🐾 ${p.name}</option>`).join('');
+  galFilters.innerHTML=`
+    <div class="gfr"><span>Ветвь</span><div class="gfrow">${brOpts}<button class="gf${!galBranch?' on':''}" data-b="">Все</button></div></div>
+    <div class="gfr"><span>Человек</span><select id="galf-person"><option value="">— все люди —</option>${personOpts}</select></div>`;
+
+  galFilters.querySelectorAll('.gf[data-b]').forEach(b=>b.onclick=()=>{
+    galBranch=b.dataset.b||null; galPerson=null; renderGallery();
+  });
+  galFilters.querySelector('#galf-person').onchange=e=>{
+    galPerson=e.target.value||null; galBranch=null; renderGallery();
+  };
+
+  gItems=galleryItems().filter(it=>
+    (galBranch?it.branch===galBranch:true) && (galPerson?it.person===galPerson:true));
+  galSheet.querySelector('.galcount').textContent=`${gItems.length} фото`;
+  galGrid.innerHTML=gItems.length?gItems.map((it,gi2)=>`
+    <button class="gcell" data-p="${it.person}" data-i="${gi2}" title="${it.name}">
+      <img src="${it.src}" alt="${it.name}">
+      <span>${it.name}${it.tag?` · ${it.tag}`:''}</span>
+    </button>`).join(''):'<div class="gempty">Нет фотографий по выбранному фильтру</div>';
+
+  galGrid.querySelectorAll('.gcell').forEach(c=>c.onclick=()=>{
+    openLbGal(+c.dataset.i);
+  });
+  if(window.EDIT&&window.EDIT.afterGalleryRender) window.EDIT.afterGalleryRender();
+}
+/* лайтбокс поверх галереи — листает прямо в ней, не открывая карточку */
+const lbg=document.getElementById('lbgal'), lbgImg=lbg.querySelector('img'), lbgCap=lbg.querySelector('.cap');
+function lbGalSync(){
+  const it=gItems[gIdx]; if(!it)return;
+  lbgImg.src=it.src;
+  lbgCap.textContent=`${it.name} · фото ${gIdx+1} из ${gItems.length}`;
+}
+function openLbGal(i){
+  gIdx=i; lbGalSync();
+  lbg.classList.add('open');
+  requestAnimationFrame(()=>lbg.classList.add('vis'));
+}
+function openPetLightbox(pet,i){
+  gItems=(pet.photos||[]).map(src=>({src,name:'🐾 '+pet.name}));
+  openLbGal(i);
+}
+function lbGalClose(){ lbg.classList.remove('vis'); setTimeout(()=>lbg.classList.remove('open'),300); }
+function lbGalStep(d){ if(!gItems.length)return; gIdx=(gIdx+d+gItems.length)%gItems.length; lbGalSync(); }
+lbg.addEventListener('click',e=>{ if(e.target===lbg||e.target===lbgImg)lbGalClose(); });
+lbg.querySelector('.lbnav.p').onclick=e=>{e.stopPropagation();lbGalStep(-1);};
+lbg.querySelector('.lbnav.n').onclick=e=>{e.stopPropagation();lbGalStep(1);};
+document.getElementById('galtoggle').onclick=()=>openGallery(null,null);
+document.getElementById('galclose').onclick=closeGallery;
+galOv.addEventListener('click',e=>{ if(e.target===galOv) closeGallery(); });
 
 /* фото на весь экран */
 const lb=document.getElementById('lightbox'),lbimg=lb.querySelector('img'),lbcap=lb.querySelector('.cap');
-function lbSync(){lbimg.src=cur.photos[gi];lbcap.textContent=`${cur.name} · ${cur.years} · фото ${gi+1} из ${cur.photos.length}`;}
+function lbSync(){
+  const p=activeCard(),photos=activePhotos();
+  if(!p||!photos.length)return;
+  lbimg.src=photos[gi];
+  lbcap.textContent=`${p.name}${p.years?' · '+p.years:''} · фото ${gi+1} из ${photos.length}`;
+}
 function lbClose(){lb.classList.remove('vis');setTimeout(()=>lb.classList.remove('open'),400);}
 lb.onclick=e=>{if(e.target===lb||e.target===lbimg)lbClose();};
 lb.querySelector('.lbnav.p').onclick=e=>{e.stopPropagation();setPhoto(gi-1);lbSync();};
@@ -931,6 +1251,12 @@ addEventListener('pointerup',()=>{seeking=null;});
 
 /* ---------- клавиатура ---------- */
 addEventListener('keydown',e=>{
+  if(lbg.classList.contains('open')){
+    if(e.key==='Escape')lbGalClose();
+    if(e.key==='ArrowLeft')lbGalStep(-1);
+    if(e.key==='ArrowRight')lbGalStep(1);
+    return;
+  }
   if(lb.classList.contains('open')){
     if(e.key==='Escape')lbClose();
     if(e.key==='ArrowLeft'){setPhoto(gi-1);lbSync();}
@@ -998,10 +1324,11 @@ window.TREE={
   get people(){return PEOPLE}, set people(v){PEOPLE=v},
   get unions(){return UNIONS}, set unions(v){UNIONS=v},
   get branches(){return BRANCHES}, set branches(v){BRANCHES=v},
+  get pets(){return PETS}, set pets(v){PETS=v},
   get site(){return SITE},
-  get current(){return cur},
+  get current(){return cur||curPet},
   byId, rebuild, redrawLight, fit, centerOn, openCard:open, closeCard:close, applySite, MOBILE,
-  exportData, loadData, persist, placeholder, DEFAULT_DATA, STORE_KEY, S,
+  openGallery, closeGallery, realPhotos, exportData, loadData, persist, placeholder, DEFAULT_DATA, STORE_KEY, S,
   screenToWorld(sx,sy){
     const r=vp.getBoundingClientRect();
     return {x:(sx-r.width/2-S.x)/S.k, y:(sy-r.height/2-S.y)/S.k};

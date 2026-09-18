@@ -115,23 +115,26 @@ panel.innerHTML=`
    <div class="status" id="e-status"></div>
  </header>
  <div class="scroll">
-   <div class="tools">
-     <button class="b pri" id="e-add">+ Человек</button>
-     <button class="b" id="e-save">Сохранить</button>
-     <button class="b" id="e-file">Подключить data.js</button>
-     <button class="b" id="e-code">Скачать data.js</button>
-     <button class="b" id="e-json">Экспорт JSON</button>
-     <button class="b" id="e-imp">Импорт JSON</button>
-     <button class="b dgr" id="e-reset">Сброс</button>
-   </div>
+    <div class="tools">
+      <button class="b pri" id="e-add">+ Человек</button>
+      <button class="b pri" id="e-addpet">+ Питомец</button>
+      <button class="b" id="e-gallery">▦ Галерея</button>
+      <button class="b" id="e-save">Сохранить</button>
+      <button class="b" id="e-file">Подключить data.js</button>
+      <button class="b" id="e-code">Скачать data.js</button>
+      <button class="b" id="e-json">Экспорт JSON</button>
+      <button class="b" id="e-imp">Импорт JSON</button>
+      <button class="b dgr" id="e-reset">Сброс</button>
+    </div>
    <div id="e-site"></div>
    <div id="e-branches"></div>
+   <div id="e-pets"></div>
    <label>Люди</label>
    <input id="e-search" placeholder="Поиск по имени…">
    <div class="list" id="e-list"></div>
    <div class="hint">Клик по звезде — выбрать, перетаскивание — переместить. Всё сохраняется автоматически.</div>
    <div id="e-form"></div>
- </div>`;
+  </div>`;
 document.body.appendChild(panel);
 
 const toggle=document.createElement('button');
@@ -145,11 +148,11 @@ function say(m){toast.textContent=m;toast.classList.add('on');clearTimeout(tmr);
 
 const $=s=>panel.querySelector(s);
 const listEl=$('#e-list'), formEl=$('#e-form'), searchEl=$('#e-search'),
-      siteEl=$('#e-site'), brEl=$('#e-branches');
+      siteEl=$('#e-site'), brEl=$('#e-branches'), petEl=$('#e-pets');
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ------------------------------ состояние ------------------------------ */
-let mode='edit', sel=null, nd=null, rafId=null, saveTimer=null;
+let mode='edit', sel=null, selPet=null, nd=null, rafId=null, saveTimer=null;
 document.body.classList.add('e-edit');
 
 function setMode(m){
@@ -157,6 +160,8 @@ function setMode(m){
   panel.querySelectorAll('.modes button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   document.body.classList.toggle('e-edit',m==='edit');
   if(m==='view') T.people.forEach(p=>p.el&&p.el.classList.remove('esel')); else highlight();
+  const galEdit=document.getElementById('galedit');
+  if(galEdit)galEdit.hidden=m!=='edit';
 }
 panel.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 toggle.onclick=()=>panel.classList.toggle('off');
@@ -169,7 +174,7 @@ toggle.onclick=()=>panel.classList.toggle('off');
    Где такого API нет (Firefox, Safari, телефоны) — остаётся кнопка
    «Скачать data.js» и лёгкая резервная копия в браузере без тяжёлых файлов.
    ===================================================================== */
-const CAN_FS = typeof window.showSaveFilePicker==='function';
+const CAN_FS = typeof window.showOpenFilePicker==='function' || typeof window.showSaveFilePicker==='function';
 let fileHandle=null, dirty=false;
 
 function dataJsText(){
@@ -178,6 +183,7 @@ function dataJsText(){
     'let SITE='+JSON.stringify(d.site,null,1)+';\n\n'+
     'let BRANCHES='+JSON.stringify(d.branches,null,1)+';\n\n'+
     'let PEOPLE='+JSON.stringify(d.people,null,1)+';\n\n'+
+    'let PETS='+JSON.stringify(d.pets,null,1)+';\n\n'+
     'let UNIONS='+JSON.stringify(d.unions,null,1)+';\n';
 }
 async function ensurePermission(){
@@ -192,16 +198,27 @@ async function writeFile(){
     if(!await ensurePermission())return false;
     const w=await fileHandle.createWritable();
     await w.write(dataJsText()); await w.close();
-    dirty=false; updStatus(); return true;
+    dirty=false; updStatus();
+    try{localStorage.removeItem(T.STORE_KEY);}catch(_){}
+    return true;
   }catch(e){say('Ошибка записи в файл: '+e.message); return false;}
 }
 async function connectFile(){
   if(!CAN_FS){say('Этот браузер не умеет писать в файл — пользуйтесь «Скачать data.js» (Chrome/Edge умеют)');return;}
   try{
-    fileHandle=await window.showSaveFilePicker({
-      suggestedName:'data.js',
-      types:[{description:'Файл данных',accept:{'text/javascript':['.js']}}]
-    });
+    if(typeof window.showOpenFilePicker==='function'){
+      const picked=await window.showOpenFilePicker({
+        multiple:false,
+        types:[{description:'Файл данных',accept:{'text/javascript':['.js']}}],
+        mode:'readwrite'
+      });
+      fileHandle=picked[0];
+    }else{
+      fileHandle=await window.showSaveFilePicker({
+        suggestedName:'data.js',
+        types:[{description:'Файл данных',accept:{'text/javascript':['.js']}}]
+      });
+    }
     if(await writeFile()) say('Подключено: '+fileHandle.name+' — теперь всё сохраняется прямо в файл');
   }catch(e){ if(e.name!=='AbortError') say('Не удалось подключить файл: '+e.message); }
   updStatus();
@@ -218,7 +235,10 @@ function updStatus(){
   }
 }
 async function autosave(){
-  if(fileHandle){ await writeFile(); return; }
+  if(fileHandle){
+    if(!await writeFile()){ T.persist(); dirty=true; updStatus(); }
+    return;
+  }
   T.persist();                      // лёгкая копия без встроенных файлов; молча
   dirty=true; updStatus();
 }
@@ -236,7 +256,41 @@ addEventListener('keydown',e=>{
 });
 addEventListener('beforeunload',e=>{ if(dirty&&fileHandle){e.preventDefault();e.returnValue='';} });
 function highlight(){T.people.forEach(p=>p.el&&p.el.classList.toggle('esel',mode==='edit'&&p.id===sel));}
-function select(id){sel=id;renderList();renderForm();highlight();}
+function select(id){sel=id;selPet=null;renderList();renderForm();renderPets();highlight();}
+function selectPet(id){selPet=id;sel=null;renderPets();renderForm();}
+
+function galleryTargetOptions(){
+  const people=T.people.map(p=>`<option value="person:${p.id}">${esc(p.name)}</option>`).join('');
+  const pets=T.pets.map(p=>`<option value="pet:${p.id}">🐾 ${esc(p.name)}</option>`).join('');
+  return people+pets;
+}
+function wireGalleryEditor(){
+  const edit=document.getElementById('galedit'), target=document.getElementById('galaddtarget'),
+        tag=document.getElementById('galaddtag'), add=document.getElementById('galadd');
+  if(!edit||!target||!tag||!add)return;
+  edit.hidden=false;
+  target.innerHTML=galleryTargetOptions();
+  const current=selPet?`pet:${selPet}`:sel?`person:${sel}`:'';
+  if(current&&target.querySelector(`option[value="${current}"]`))target.value=current;
+  add.onclick=()=>{
+    const value=target.value, caption=tag.value.trim();
+    if(!value){say('Выберите человека или питомца');return;}
+    pickPaths('image/*',paths=>{
+      const [kind,id]=value.split(':');
+      const obj=kind==='pet'?T.pets.find(p=>p.id===id):T.people.find(p=>p.id===id);
+      if(!obj)return;
+      if(!Array.isArray(obj.photos)||obj.autoPhotos)obj.photos=[];
+      obj.autoPhotos=false;
+      if(!Array.isArray(obj.photoTags))obj.photoTags=[];
+      paths.forEach(path=>{obj.photos.push(path);obj.photoTags.push(caption);});
+      touch(); tag.value=''; renderGalleryAfterEdit();
+      say(`Добавлено фото: ${obj.name}`);
+    });
+  };
+}
+function renderGalleryAfterEdit(){
+  if(window.TREE&&T.openGallery)T.openGallery(null,null);
+}
 
 /* ------------------------------ файлы и пути ------------------------------ */
 function pickFiles(accept,multiple,cb){
@@ -356,6 +410,32 @@ function renderList(){
 }
 searchEl.oninput=renderList;
 
+/* ------------------------------ питомцы ------------------------------ */
+function petOwner(id){const p=T.people.find(x=>x.id===id);return p?p.name:'—';}
+function renderPets(){
+  if(!petEl)return;
+  petEl.innerHTML=`
+   <div class="card">
+     <h5>Питомцы</h5>
+     ${T.pets.map(p=>`
+       <div class="row ${p.id===selPet?'sel':''}" data-pet="${p.id}">
+         <span class="bdot" style="background:#d8c98a"></span>
+         <span>🐾 ${esc(p.name)}</span>
+         <span class="yy">${esc(petOwner(p.owner))}</span>
+       </div>`).join('')||'<div class="hint">Питомцев пока нет.</div>'}
+     <button class="b" id="pet-add" style="margin-top:6px;width:100%">+ Питомец</button>
+     <div class="hint">Питомец показывается рядом со своим хозяином на карте и в его карточке.</div>
+   </div>`;
+  petEl.querySelectorAll('.row[data-pet]').forEach(r=>r.onclick=()=>selectPet(r.dataset.pet));
+  const ba=petEl.querySelector('#pet-add'); if(ba)ba.onclick=addPet;
+}
+function addPet(){
+  let n=1; while(T.pets.some(p=>p.id==='pet'+n))n++;
+  T.pets.push({id:'pet'+n,name:'Новый питомец',species:'',owner:'',bio:[],photos:[],manualPos:false});
+  touch(); renderPets(); selectPet('pet'+n);
+  say('Питомец добавлен');
+}
+
 /* ------------------------------ форма человека ------------------------------ */
 const others=p=>T.people.filter(q=>q.id!==p.id);
 const shortName=id=>{const q=T.byId[id];return q?q.name.split(' ').slice(0,2).join(' '):id;};
@@ -364,6 +444,47 @@ const parentUnions=p=>T.unions.filter(u=>(u.children||[]).includes(p.id));
 const unionTitle=u=>u.b?`${shortName(u.a)} + ${shortName(u.b)}`:`${shortName(u.a)} (один родитель)`;
 
 function renderForm(){
+  if(selPet){
+    const p=T.pets.find(x=>x.id===selPet);
+    if(!p){formEl.innerHTML='<div class="hint">Питомец не найден.</div>';return;}
+    const real=(p.photos||[]).slice();
+    formEl.innerHTML=`
+    <div class="card">
+      <h4>🐾 ${esc(p.name)}</h4>
+      <div class="hint">id: <b>${esc(p.id)}</b></div>
+      <label>Кличка</label><input data-pf="name" value="${esc(p.name)}">
+      <label>Вид</label><input data-pf="species" value="${esc(p.species||'')}" placeholder="кот, собака…">
+      <label>Хозяин</label>
+      <select data-pf="owner">
+        <option value="">— без хозяина —</option>
+        ${T.people.map(q=>`<option value="${q.id}" ${p.owner===q.id?'selected':''}>${esc(q.name)}</option>`).join('')}
+      </select>
+      <label>Описание</label>
+      <textarea data-pf="bio" rows="5">${esc((p.bio||[]).join('\n\n'))}</textarea>
+
+      <div class="sub">
+        <label>Фотографии (${real.length})</label>
+        <div>${real.map((src,i)=>`
+          <div class="ph">
+            <img src="${esc(src)}" onerror="this.style.opacity=.25">
+            <input value="${esc(src.startsWith('data:')?'(встроенный файл)':src)}" ${src.startsWith('data:')?'readonly':''} data-pi="${i}">
+            <button class="ico" data-pup="${i}" title="Выше">↑</button>
+            <button class="ico" data-pdel="${i}" title="Удалить">✕</button>
+          </div>`).join('')}</div>
+        <div class="two" style="margin-top:6px">
+          <button class="b" id="e-ppath">+ путь к файлу</button>
+          <button class="b" id="e-ppick">+ выбрать файлы</button>
+        </div>
+        <button class="b" id="e-pembed" style="width:100%;margin-top:6px">+ встроить фото в данные</button>
+      </div>
+
+      <div class="sub two" style="margin-top:8px">
+        <button class="b dgr" id="e-petdel">Удалить питомца</button>
+      </div>
+    </div>`;
+    wirePetForm(p);
+    return;
+  }
   const p=T.byId[sel];
   if(!p){formEl.innerHTML='<div class="hint">Выберите человека в списке или кликните по звезде.</div>';return;}
   const real=p.autoPhotos?[]:(p.photos||[]);
@@ -379,6 +500,7 @@ function renderForm(){
       <div><label>Место</label><input data-f="place" value="${esc(p.place||'')}"></div>
     </div>
     <label>Кем был(а)</label><input data-f="role" value="${esc(p.role||'')}">
+    <div class="hint">Питомцев добавляйте отдельной кнопкой «+ Питомец» выше и назначайте им хозяина.</div>
 
     <label>Ветвь семьи</label>
     <select data-f="branch">
@@ -477,6 +599,41 @@ function renderForm(){
 }
 
 /* ------------------------------ обработчики формы ------------------------------ */
+function wirePetForm(p){
+  const ph=()=>(p.photos||[]).slice();
+  formEl.querySelectorAll('[data-pf]').forEach(inp=>{
+    const f=inp.dataset.pf;
+    const apply=()=>{
+      if(f==='bio') p.bio=inp.value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+      else if(f==='owner'){ p.owner=inp.value; p.manualPos=false; }
+      else p[f]=inp.value;
+    };
+    if(inp.tagName==='SELECT') inp.onchange=()=>{apply();touch();renderPets();};
+    else inp.oninput=()=>{apply();clearTimeout(inp._t);inp._t=setTimeout(()=>{touch();renderPets();const h=formEl.querySelector('h4');if(h)h.textContent='🐾 '+p.name;},350);};
+  });
+  formEl.querySelectorAll('[data-pi]').forEach(i=>i.onchange=()=>{
+    const a=ph(); a[+i.dataset.pi]=i.value.trim(); p.photos=a.filter(Boolean); touch(); renderForm();});
+  formEl.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.pdel,a=ph(); a.splice(i,1); p.photos=a;
+    p.photoTags=(p.photoTags||[]).slice();p.photoTags.splice(i,1);touch(); renderForm();});
+  formEl.querySelectorAll('[data-pup]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.pup,a=ph(); if(i>0){
+      [a[i-1],a[i]]=[a[i],a[i-1]];p.photos=a;
+      const tags=(p.photoTags||[]).slice();[tags[i-1],tags[i]]=[tags[i],tags[i-1]];p.photoTags=tags;
+      touch();renderForm();}});
+  formEl.querySelector('#e-ppath').onclick=()=>{
+    const v=prompt('Путь к фото относительно страницы:',base()); if(!v)return;
+    p.photos=ph().concat(v.trim());p.photoTags=(p.photoTags||[]).concat('');touch(); renderForm();};
+  formEl.querySelector('#e-ppick').onclick=()=>pickPaths('image/*',paths=>{
+    p.photos=ph().concat(paths);p.photoTags=(p.photoTags||[]).concat(paths.map(()=>''));touch(); renderForm();});
+  formEl.querySelector('#e-pembed').onclick=()=>pickFiles('image/*',true,files=>{
+    Promise.all(files.map(readAsDataURL)).then(u=>{p.photos=ph().concat(u);p.photoTags=(p.photoTags||[]).concat(u.map(()=>''));touch();renderForm();});});
+  formEl.querySelector('#e-petdel').onclick=()=>{
+    if(!confirm(`Удалить питомца «${p.name}»?`))return;
+    T.pets=T.pets.filter(x=>x.id!==p.id);
+    selPet=null; T.rebuild(false); touch(false); renderPets(); renderForm();
+  };
+}
 function wireForm(p){
   formEl.querySelectorAll('[data-f]').forEach(inp=>{
     const f=inp.dataset.f;
@@ -500,16 +657,20 @@ function wireForm(p){
   formEl.querySelectorAll('[data-pi]').forEach(i=>i.onchange=()=>{
     const a=ph().slice(); a[+i.dataset.pi]=i.value.trim(); p.photos=a.filter(Boolean); touch(); renderForm();});
   formEl.querySelectorAll('[data-pdel]').forEach(b=>b.onclick=()=>{
-    const a=ph().slice(); a.splice(+b.dataset.pdel,1); p.photos=a; touch(); renderForm();});
+    const i=+b.dataset.pdel,a=ph().slice(); a.splice(i,1); p.photos=a;
+    p.photoTags=(p.photoTags||[]).slice();p.photoTags.splice(i,1);touch(); renderForm();});
   formEl.querySelectorAll('[data-pup]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.pup,a=ph().slice(); if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];p.photos=a;touch();renderForm();}});
+    const i=+b.dataset.pup,a=ph().slice(); if(i>0){
+      [a[i-1],a[i]]=[a[i],a[i-1]];p.photos=a;
+      const tags=(p.photoTags||[]).slice();[tags[i-1],tags[i]]=[tags[i],tags[i-1]];p.photoTags=tags;
+      touch();renderForm();}});
   formEl.querySelector('#e-ppath').onclick=()=>{
     const v=prompt('Путь к фото относительно страницы:',base()); if(!v)return;
-    p.photos=ph().concat(v.trim()); touch(); renderForm();};
+    p.photos=ph().concat(v.trim());p.photoTags=(p.photoTags||[]).concat('');touch(); renderForm();};
   formEl.querySelector('#e-ppick').onclick=()=>pickPaths('image/*',paths=>{
-    p.photos=ph().concat(paths); touch(); renderForm();});
+    p.photos=ph().concat(paths);p.photoTags=(p.photoTags||[]).concat(paths.map(()=>''));touch(); renderForm();});
   formEl.querySelector('#e-pembed').onclick=()=>pickFiles('image/*',true,files=>{
-    Promise.all(files.map(readAsDataURL)).then(u=>{p.photos=ph().concat(u);touch();renderForm();
+    Promise.all(files.map(readAsDataURL)).then(u=>{p.photos=ph().concat(u);p.photoTags=(p.photoTags||[]).concat(u.map(()=>''));touch();renderForm();
       say('Фото встроены. Для большого архива лучше пути к файлам');});});
 
   /* голоса */
@@ -569,11 +730,13 @@ $('#e-add').onclick=()=>{
   let n=1; while(T.byId['p'+n])n++;
   const c=T.screenToWorld(innerWidth/2-180,innerHeight/2);
   const p={id:'p'+n,name:'Новый человек',years:'',x:Math.round(c.x),y:Math.round(c.y),
-           place:'',role:'',branch:'',card:true,bio:[],photos:[],voices:[]};
+           place:'',role:'',pet:'',branch:'',card:true,bio:[],photos:[],voices:[]};
   T.people.push(p); touch(); select(p.id); T.centerOn(p);
   say('Звезда добавлена — перетащите её на место');
 };
+$('#e-addpet').onclick=addPet;
 $('#e-file').onclick=connectFile;
+$('#e-gallery').onclick=()=>{ T.openGallery(null,null); };
 $('#e-save').onclick=async()=>{
   if(fileHandle){ (await writeFile())&&say('Записано в '+fileHandle.name); }
   else if(CAN_FS) connectFile();
@@ -608,6 +771,14 @@ $('#e-reset').onclick=()=>{
 window.EDIT={
   pointerdown(e){
     if(mode!=='edit')return false;
+    const petEl=e.target.closest&&e.target.closest('.petnode');
+    if(petEl){
+      const p=T.pets.find(x=>x.id===petEl.dataset.pet); if(!p)return false;
+      const w=T.screenToWorld(e.clientX,e.clientY);
+      nd={p,ox:p.x-w.x,oy:p.y-w.y,sx:e.clientX,sy:e.clientY,moved:0,isPet:true};
+      document.body.classList.add('e-drag');
+      return true;
+    }
     const el=e.target.closest&&e.target.closest('.node'); if(!el)return false;
     const p=T.byId[el.dataset.id]; if(!p)return false;
     const w=T.screenToWorld(e.clientX,e.clientY);
@@ -628,18 +799,31 @@ window.EDIT={
   },
   pointerup(){
     if(!nd)return false;
-    const p=nd.p, click=nd.moved<5; nd=null;
+    const p=nd.p, click=nd.moved<5, isPet=nd.isPet; nd=null;
     document.body.classList.remove('e-drag');
-    T.rebuild(false); select(p.id);
-    if(!click){touch(false);say(`${p.name.split(' ')[0]}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
+    if(isPet) p.manualPos=!click;
+    T.rebuild(false);
+    if(isPet){
+      selectPet(p.id);
+      if(!click){touch(false);say(`${p.name}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
+    }else{
+      select(p.id);
+      if(!click){touch(false);say(`${p.name.split(' ')[0]}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
+    }
     return true;
   },
   pick(id){if(mode!=='edit')return false;select(id);return true;},
+  pickPet(id){if(mode!=='edit')return false;selectPet(id);return true;},
+  afterGalleryRender(){
+    const edit=document.getElementById('galedit');
+    if(edit)edit.hidden=mode!=='edit';
+    if(mode==='edit')wireGalleryEditor();
+  },
   afterRebuild(){highlight();}
 };
 
 /* ------------------------------ старт ------------------------------ */
-renderSite(); renderBranches(); renderList(); renderForm(); updStatus();
+renderSite(); renderBranches(); renderPets(); renderList(); renderForm(); updStatus();
 say(CAN_FS?'Редактор включён. Нажмите «Подключить data.js», чтобы правки сохранялись прямо в файл'
           :'Редактор включён. Сохранение — кнопкой «Скачать data.js»');
 })();
