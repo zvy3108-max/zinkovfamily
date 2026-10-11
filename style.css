@@ -91,7 +91,7 @@
 #lightbox.open{display:grid;place-items:center}
 #lightbox.vis{opacity:1}
 #lightbox img{max-width:94vw;max-height:88vh;border-radius:4px;box-shadow:0 30px 100px rgba(0,0,0,.9);
-  transform:scale(.96);transition:transform .45s cubic-bezier(.2,.9,.15,1)}
+   transform:scale(.96);transition:transform .45s cubic-bezier(.2,.9,.15,1);touch-action:none;user-select:none}
 #lightbox.vis img{transform:none}
 #lightbox .cap{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:11px;
   letter-spacing:.18em;color:var(--dim)}
@@ -104,7 +104,11 @@
 #lbgal{display:none;position:fixed;inset:0;z-index:80;background:rgba(3,4,7,.97);opacity:0;transition:opacity .35s ease}
 #lbgal.open{display:grid;place-items:center}
 #lbgal.vis{opacity:1}
-#lbgal img{max-width:94vw;max-height:84vh;border-radius:4px;box-shadow:0 30px 100px rgba(0,0,0,.9)}
+#lbgal img{max-width:94vw;max-height:84vh;border-radius:4px;box-shadow:0 30px 100px rgba(0,0,0,.9);touch-action:none;user-select:none}
+#lightbox.photozoom,#lbgal.photozoom{cursor:grab}
+#lightbox.photozoom img,#lbgal.photozoom img{transition:none;cursor:grab}
+#lightbox.photozoom img:active,#lbgal.photozoom img:active{cursor:grabbing}
+#lightbox img,#lbgal img{-webkit-user-drag:none;user-drag:none}
 #lbgal .cap{position:absolute;bottom:22px;left:0;right:0;text-align:center;font-size:11px;letter-spacing:.18em;color:var(--dim)}
 #lbgal .lbnav{position:absolute;top:50%;transform:translateY(-50%);font-size:26px;color:var(--dim);cursor:pointer;padding:22px;transition:.2s}
 #lbgal .lbnav:hover{color:#fff}
@@ -262,12 +266,20 @@
 
 /* ---------- люди без карточки: просто звезда с именем ---------- */
 .node.plain{width:150px;cursor:default}
+.node.plain.notice{cursor:pointer}
 .node.plain .ph,.node.plain .mic{display:none}
 .node.plain .dot{width:16px;height:16px;margin:34px auto 0;border-radius:50%;background:#f3efff;
-  box-shadow:0 0 20px 6px rgba(160,148,255,.75),0 0 40px 10px rgba(140,130,255,.35);transition:transform .4s ease}
+   box-shadow:0 0 20px 6px rgba(160,148,255,.75),0 0 40px 10px rgba(140,130,255,.35);transition:transform .4s ease}
 .node.plain .nm{font-size:16px;color:#ece7ff;margin-top:13px;font-style:normal;font-weight:500;
-  text-shadow:0 2px 10px rgba(0,0,0,.85)}
+   text-shadow:0 2px 10px rgba(0,0,0,.85)}
 .node.plain .yr{color:#a79fe0;font-size:10.5px}
+.node.plain.notice .dot{background:#ffd59a;box-shadow:0 0 20px 6px rgba(255,159,109,.75),0 0 40px 10px rgba(255,109,159,.35)}
+.node.plain.notice .nm{color:#ffe5c2}
+.node.plain.notice .yr{color:#d9a47c}
+.node.plain .plainhint{display:none;position:absolute;left:50%;bottom:calc(100% - 28px);z-index:4;width:max-content;max-width:min(280px,78vw);
+   padding:8px 10px;border:1px solid rgba(255,190,130,.42);border-radius:9px;background:rgba(31,20,22,.95);box-shadow:0 8px 24px rgba(0,0,0,.55);
+   transform:translateX(-50%);font:400 11px/1.35 var(--sans);color:#ffe2c4;text-align:left;white-space:normal;pointer-events:none}
+.node.plain.notice:hover .plainhint,.node.plain.notice.shown .plainhint{display:block}
 .node.plain:hover .halo{opacity:.8;transform:translateX(-50%) scale(1.05)}
 .node.plain:hover .dot{transform:scale(1.3)}
 .node.plain .halo{top:6px;width:96px;height:96px;opacity:.42}

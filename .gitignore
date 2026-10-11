@@ -6,3 +6,5 @@ family-data(q).json
 family-data.json
 family-tree-old.html
 serve.ps1
+.gitingnore
+.stfolder/

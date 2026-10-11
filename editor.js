@@ -70,6 +70,8 @@ const css=`
 #edt .hint{font-size:9.5px;color:#7e77b4;line-height:1.55;margin:6px 0}
 #edt .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 #edt .three{display:grid;grid-template-columns:34px 1fr 26px;gap:6px;align-items:center;margin-bottom:6px}
+#edt .three.branchrow{grid-template-columns:34px 1fr 26px 26px}
+#edt button.ico.on{border-color:#ffd76d;color:#ffd76d;background:rgba(255,215,109,.14)}
 #edt .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(140,130,255,.14);
   border:1px solid rgba(160,150,255,.25);border-radius:20px;padding:4px 6px 4px 11px;font-size:11px;margin:0 5px 5px 0}
 #edt .chip b{font-weight:400}
@@ -152,7 +154,7 @@ const listEl=$('#e-list'), formEl=$('#e-form'), searchEl=$('#e-search'),
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ------------------------------ состояние ------------------------------ */
-let mode='edit', sel=null, selPet=null, nd=null, rafId=null, saveTimer=null;
+let mode='edit', sel=null, selPet=null, nd=null, rafId=null, saveTimer=null, moveBranch=null;
 document.body.classList.add('e-edit');
 
 function setMode(m){
@@ -360,13 +362,14 @@ function renderBranches(){
    <div class="card">
      <h5>Ветви семьи</h5>
      ${br.map((b,i)=>`
-       <div class="three">
-         <input type="color" value="${esc(b.color||'#6d8bff')}" data-bc="${i}">
-         <input value="${esc(b.title||'')}" data-bt="${i}" placeholder="Название ветви">
-         <button class="ico" data-bd="${i}" title="Удалить ветвь">✕</button>
+        <div class="three branchrow">
+          <input type="color" value="${esc(b.color||'#6d8bff')}" data-bc="${i}">
+          <input value="${esc(b.title||'')}" data-bt="${i}" placeholder="Название ветви">
+          <button class="ico ${moveBranch===b.id?'on':''}" data-bmove="${b.id}" title="Перемещать всю ветвь">↔</button>
+          <button class="ico" data-bd="${i}" title="Удалить ветвь">✕</button>
        </div>`).join('')||'<div class="hint">Ветвей пока нет.</div>'}
      <button class="b" id="b-add" style="margin-top:6px;width:100%">+ Ветвь</button>
-     <div class="hint">Фон за всеми людьми одной ветви закрашивается её цветом, сверху появляется подпись. Ветвь человеку назначается в его форме ниже.</div>
+      <div class="hint">Кнопка ↔ включает перенос ветви: перетащите любого человека этой ветви на карте, и все её люди сдвинутся вместе.</div>
    </div>`;
 
   brEl.querySelectorAll('[data-bt]').forEach(inp=>inp.oninput=()=>{
@@ -381,8 +384,14 @@ function renderBranches(){
     const br2=T.branches[+b.dataset.bd];
     if(!confirm(`Удалить ветвь «${br2.title}»? Люди останутся, но без ветви.`))return;
     T.people.forEach(p=>{if(p.branch===br2.id)p.branch='';});
+    if(moveBranch===br2.id)moveBranch=null;
     T.branches.splice(+b.dataset.bd,1);
     touch(); renderBranches(); renderForm(); renderList();
+  });
+  brEl.querySelectorAll('[data-bmove]').forEach(b=>b.onclick=()=>{
+    moveBranch=moveBranch===b.dataset.bmove?null:b.dataset.bmove;
+    renderBranches();
+    say(moveBranch?'Перенос ветви включён: перетащите любую её звезду':'Перенос ветви выключен');
   });
   brEl.querySelector('#b-add').onclick=()=>{
     const title=prompt('Название ветви','Новая ветвь'); if(title===null)return;
@@ -510,7 +519,9 @@ function renderForm(){
 
     <label class="chk"><input type="checkbox" data-f="card" ${p.card===false?'':'checked'}>
       <span>Показывать карточку</span></label>
-    <div class="hint">Снимите галочку, если о человеке известно только имя: на небе останется звезда с подписью, но карточка открываться не будет.</div>
+    <div class="hint">Снимите галочку, если карточка не нужна: звезда останется белой и по нажатию ничего не откроет.</div>
+    ${p.card===false?`<label class="chk"><input type="checkbox" data-f="notice" ${p.notice?'checked':''}><span>Показывать жёлтую звезду с сообщением</span></label>
+    ${p.notice?`<label>Сообщение для жёлтой звезды</label><textarea data-f="note" rows="3" placeholder="Информации пока недостаточно">${esc(p.note||'')}</textarea>`:''}`:''}
 
     ${p.card===false?'':`
     <label>Биография — абзацы разделяются пустой строкой</label>
@@ -640,11 +651,11 @@ function wireForm(p){
     const apply=()=>{
       if(f==='bio') p.bio=inp.value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
       else if(f==='x'||f==='y') p[f]=parseFloat(inp.value)||0;
-      else if(f==='card') p.card=inp.checked;
+      else if(f==='card'||f==='notice') p[f]=inp.checked;
       else p[f]=inp.value;
     };
     if(inp.type==='checkbox'||inp.tagName==='SELECT'){
-      inp.onchange=()=>{apply();touch();renderList();if(f==='card')renderForm();};
+      inp.onchange=()=>{apply();touch();renderList();if(f==='card'||f==='notice')renderForm();};
     }else{
       inp.oninput=()=>{apply();clearTimeout(inp._t);
         inp._t=setTimeout(()=>{touch();highlight();
@@ -772,26 +783,28 @@ window.EDIT={
   pointerdown(e){
     if(mode!=='edit')return false;
     const petEl=e.target.closest&&e.target.closest('.petnode');
-    if(petEl){
-      const p=T.pets.find(x=>x.id===petEl.dataset.pet); if(!p)return false;
-      const w=T.screenToWorld(e.clientX,e.clientY);
-      nd={p,ox:p.x-w.x,oy:p.y-w.y,sx:e.clientX,sy:e.clientY,moved:0,isPet:true};
-      document.body.classList.add('e-drag');
-      return true;
+    const el=petEl||e.target.closest&&e.target.closest('.node'); if(!el)return false;
+    const p=petEl?T.pets.find(x=>x.id===petEl.dataset.pet):T.byId[el.dataset.id]; if(!p)return false;
+    const w=T.screenToWorld(e.clientX,e.clientY), isPet=!!petEl;
+    let items=[p];
+    if(!isPet&&moveBranch&&p.branch===moveBranch){
+      const ownerIds=new Set(T.people.filter(q=>q.branch===moveBranch).map(q=>q.id));
+      items=items.concat(T.people.filter(q=>q.branch===moveBranch));
+      T.pets.filter(q=>ownerIds.has(q.owner)).forEach(q=>items.push(q));
+      items=[...new Set(items)];
     }
-    const el=e.target.closest&&e.target.closest('.node'); if(!el)return false;
-    const p=T.byId[el.dataset.id]; if(!p)return false;
-    const w=T.screenToWorld(e.clientX,e.clientY);
-    nd={p,ox:p.x-w.x,oy:p.y-w.y,sx:e.clientX,sy:e.clientY,moved:0};
+    nd={p,items:items.map(q=>({q,x:q.x,y:q.y})),wx:w.x,wy:w.y,sx:e.clientX,sy:e.clientY,moved:0,isPet,branch:items.length>1};
     document.body.classList.add('e-drag');
     return true;
   },
   pointermove(e){
     if(!nd)return false;
-    const w=T.screenToWorld(e.clientX,e.clientY);
-    nd.p.x=Math.round(w.x+nd.ox); nd.p.y=Math.round(w.y+nd.oy);
+    const w=T.screenToWorld(e.clientX,e.clientY),dx=Math.round(w.x-nd.wx),dy=Math.round(w.y-nd.wy);
+    nd.items.forEach(({q,x,y})=>{
+      q.x=x+dx;q.y=y+dy;
+      if(q.el){q.el.style.left=q.x+'px';q.el.style.top=q.y+'px';}
+    });
     nd.moved=Math.max(nd.moved,Math.abs(e.clientX-nd.sx)+Math.abs(e.clientY-nd.sy));
-    if(nd.p.el){nd.p.el.style.left=nd.p.x+'px';nd.p.el.style.top=nd.p.y+'px';}
     /* при перетаскивании перерисовываем только линии и области,
        а не весь список звёзд — иначе каждый кадр пересоздаётся DOM */
     if(!rafId) rafId=requestAnimationFrame(()=>{rafId=null;T.redrawLight();});
@@ -799,7 +812,7 @@ window.EDIT={
   },
   pointerup(){
     if(!nd)return false;
-    const p=nd.p, click=nd.moved<5, isPet=nd.isPet; nd=null;
+    const p=nd.p, click=nd.moved<5, isPet=nd.isPet, branch=nd.branch; nd=null;
     document.body.classList.remove('e-drag');
     if(isPet) p.manualPos=!click;
     T.rebuild(false);
@@ -808,7 +821,7 @@ window.EDIT={
       if(!click){touch(false);say(`${p.name}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
     }else{
       select(p.id);
-      if(!click){touch(false);say(`${p.name.split(' ')[0]}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
+      if(!click){touch(false);say(branch?`Ветвь перемещена: ${Math.round(p.x)}, ${Math.round(p.y)}`:`${p.name.split(' ')[0]}: ${Math.round(p.x)}, ${Math.round(p.y)}`);}
     }
     return true;
   },
