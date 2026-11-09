@@ -83,7 +83,7 @@
   pointer-events:none;transition:color .2s
 }
 .dnav:hover .tip{color:#d6d0ff}
-@media(max-width:860px){.dnav{width:40px;height:40px;font-size:14px}.dnav .tip{display:none}}
+@media(min-width:821px) and (max-width:860px){.dnav{width:40px;height:40px;font-size:14px}.dnav .tip{display:none}}
 
 /* ---------- ФОТО НА ВЕСЬ ЭКРАН ---------- */
 #lightbox{position:fixed;inset:0;z-index:70;display:none;background:rgba(3,4,7,.97);opacity:0;
@@ -104,7 +104,7 @@
 #lbgal{display:none;position:fixed;inset:0;z-index:80;background:rgba(3,4,7,.97);opacity:0;transition:opacity .35s ease}
 #lbgal.open{display:grid;place-items:center}
 #lbgal.vis{opacity:1}
-#lbgal img{max-width:94vw;max-height:84vh;border-radius:4px;box-shadow:0 30px 100px rgba(0,0,0,.9);touch-action:none;user-select:none}
+#lbgal img{max-width:94vw;max-height:84vh;max-height:84dvh;border-radius:4px;box-shadow:0 30px 100px rgba(0,0,0,.9);touch-action:none;user-select:none}
 #lightbox.photozoom,#lbgal.photozoom{cursor:grab}
 #lightbox.photozoom img,#lbgal.photozoom img{transition:none;cursor:grab}
 #lightbox.photozoom img:active,#lbgal.photozoom img:active{cursor:grabbing}
@@ -316,15 +316,11 @@
   #sheet{box-shadow:0 20px 60px rgba(0,0,0,.85)}
   .node .ph{box-shadow:0 0 0 4px rgba(8,7,20,.78)}
   .node:hover .ph{transform:none;box-shadow:0 0 0 4px rgba(8,7,20,.78)}
-  /* на телефонах will-change слоя фиксированного разрешения даёт «мыло»
-     при зуме — не держим его на GPU постоянно */
-  #world{will-change:auto;-webkit-backface-visibility:hidden;backface-visibility:hidden}
-  #world img{-webkit-transform:translateZ(0);transform:translateZ(0)}
 }
 
 @media (max-width:820px){
   /* карточка — компактная, со скруглениями и рамкой, как на ПК */
-  #sheet{width:min(92vw,520px);max-height:82vh;height:auto;border-radius:22px;border:1px solid rgba(160,150,255,.28);
+  #sheet{width:min(92vw,520px);max-height:82vh;max-height:min(82dvh,calc(100dvh - 150px));height:auto;border-radius:22px;border:1px solid rgba(160,150,255,.28);
     top:50%;left:50%;transform:translate(-50%,-50%)}
   #overlay.vis #sheet{transform:translate(-50%,-50%)}
   #sheet.swap{transform:translate(-50%,-50%) scale(.98)}
@@ -333,17 +329,23 @@
   .gthumbs{padding:2px 18px 12px}
   .gthumbs .gt{height:80px}
   .body{padding:16px 18px 20px}
-  .fio{font-size:24px}
+  .fio{font-size:24px;padding-right:34px}   /* не залезать под кнопку ✕ */
   #close{top:10px;right:10px;width:40px;height:40px;background:rgba(12,14,20,.85)}
 
   /* стрелки перехода — компактной строкой внизу карточки */
-  #compass{top:auto;bottom:-62px;height:auto;background:none;
-    display:flex;align-items:center;justify-content:center;gap:8px;padding:0}
-  .dnav{position:static !important;transform:none !important;width:44px;height:44px;
+  #compass{top:auto;bottom:calc(14px + env(safe-area-inset-bottom));height:auto;background:none;
+    display:flex;align-items:center;gap:8px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
+  #compass::-webkit-scrollbar{display:none}
+  /* стрелка + кто там: «↓ Сын · Иван»; не влезло — листается вбок */
+  .dnav{position:static !important;transform:none !important;width:auto;height:40px;padding:0 14px;
+    border-radius:20px;display:flex;gap:7px;font-size:15px;white-space:nowrap;
     flex:0 0 auto;opacity:1 !important}
+  .dnav:first-child{margin-left:auto}
+  .dnav:last-child{margin-right:auto}
   #overlay.vis .dnav{transform:none !important}
   .dnav:hover{transform:none !important}
-  .dnav .tip{display:none}
+  .dnav .tip{display:inline;position:static;transform:none;font-size:11px;letter-spacing:.04em;
+    text-transform:none;color:#d6d0ff}
 
   /* ветви — отдельное меню (как галерея), на телефонах */
   #branchdock{left:12px;bottom:12px}
@@ -359,5 +361,11 @@
 
 @media (max-width:560px){
   .bitem{font-size:10px;padding:9px 11px}
-  .dnav{width:40px;height:40px;font-size:14px}
+}
+
+/* dvh: на телефонах 100vh включает панель адреса, и нижние края карточек уезжали за экран */
+@supports (height:1dvh){
+  #lightbox img{max-height:88dvh}
+  #galsheet{height:min(84dvh,760px)}
+  #branchsheet{height:min(76dvh,640px)}
 }

@@ -83,8 +83,8 @@ body{
 /* «немного отдалиться и немного размыться» — заметно, но мягко */
 #viewport.dimmed{filter:blur(3.5px) brightness(.62) saturate(.85)}
 #world{position:absolute;left:50%;top:50%;transform-origin:0 0;
-  transform:translate3d(0,0,0);
-  contain:layout style;}   /* слой на GPU: панорама не перерисовывает тысячи пикселей каждый кадр */
+  contain:layout style;}   /* только 2D-transform: translate3d навсегда делает слой GPU-шным, и Chrome на Android
+                              не перерисовывал его после зума — «мыло» и обрезанные куски созвездия */
 #sky,#links{position:absolute;overflow:visible;pointer-events:none}
 #links path{fill:none;stroke:var(--line);stroke-width:1.5;stroke-linecap:round;vector-effect:non-scaling-stroke}
 #links path.glow{stroke:rgba(130,110,255,.14);stroke-width:5;stroke-dasharray:none}
@@ -707,7 +707,7 @@ function drawNodes(anim){
     const br=BRANCHES.find(b=>b.id===p.branch);
     el.innerHTML=`<div class="halo"${br?` style="background:radial-gradient(circle,${br.color}3d 0%,${br.color}14 45%,transparent 70%)"`:''}></div>
       ${plain?'<div class="dot"></div>':
-        `<div class="ph"><img src="${esc(p.photos[0])}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false"></div>`}
+        `<div class="ph"><img src="${esc(p.photos[0])}" alt="${esc(p.name)}" draggable="false"></div>`}
       <div class="nm">${esc(p.name)}</div><div class="yr">${esc(p.years)}</div>
       ${plain&&p.notice?`<div class="plainhint">${esc(p.note||'Информации пока недостаточно')}</div>`:''}
       ${!plain&&p.voices.length?'<div class="mic">♪</div>':''}
@@ -724,7 +724,7 @@ function drawNodes(anim){
     el.className='petnode';
     el.dataset.pet=p.id;
     el.style.left=p.x+'px'; el.style.top=p.y+'px';
-    el.innerHTML=`<div class="petph"><img src="${esc(p.photos[0])}" alt="${esc(p.name)}" loading="lazy" decoding="async" draggable="false"></div>
+    el.innerHTML=`<div class="petph"><img src="${esc(p.photos[0])}" alt="${esc(p.name)}" draggable="false"></div>
       <div class="petnm">${esc(p.name)}</div>${p.species?`<div class="petspecies">${esc(p.species)}</div>`:''}`;
     if(anim)el.animate([{opacity:0},{opacity:1}],
       {duration:700,delay:500+i*45,easing:'ease-out',fill:'backwards'});
@@ -747,13 +747,14 @@ rebuild(true);
 /* ---------- плавный pan / zoom (без промотирования слоёв → без «шакалов») ---------- */
 const vp=document.getElementById('viewport');
 const S={x:0,y:0,k:1,tx:0,ty:0,tk:1};
-const MINK=.14,MAXK=2.2;
+let MINK=.14;const MAXK=2.2;   // MINK подстраивается под экран в fit(): на телефоне всё созвездие меньше .14
 function fit(anim=true){
   const r=vp.getBoundingClientRect();
   const k=Math.min(r.width/(vb.w*.98),r.height/(vb.h*1.02),1.05);
+  MINK=Math.min(.14,k*.9);
   S.tk=Math.max(MINK,Math.min(MAXK,k));
   S.tx=-((B.minX+B.maxX)/2)*S.tk; S.ty=-((B.minY+B.maxY)/2)*S.tk;
-  if(!anim){S.x=S.tx;S.y=S.ty;S.k=S.tk;world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;}
+  if(!anim){S.x=S.tx;S.y=S.ty;S.k=S.tk;world.style.transform=`translate(${S.x}px,${S.y}px) scale(${S.k})`;}
   else wake();
 }
 function zoomAt(sx,sy,f){
@@ -771,13 +772,14 @@ function centerOn(p,k){
 function loop(){
   const e=.15, moving=Math.abs(S.tx-S.x)+Math.abs(S.ty-S.y)>.15||Math.abs(S.tk-S.k)>.0004;
   if(moving){
-    world.style.willChange='transform';
+    /* на телефоне слой не поднимаем на GPU: Chrome Android не дорисовывает его при зуме — куски пропадают и мигают */
+    if(!MOBILE) world.style.willChange='transform';
     S.x+=(S.tx-S.x)*e; S.y+=(S.ty-S.y)*e; S.k+=(S.tk-S.k)*e;
-    world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;
+    world.style.transform=`translate(${S.x}px,${S.y}px) scale(${S.k})`;
     if(!loop.on) loop.on=true;
   }else if(!loop.settled){
     S.x=S.tx;S.y=S.ty;S.k=S.tk;
-    world.style.transform=`translate3d(${S.x}px,${S.y}px,0) scale(${S.k})`;
+    world.style.transform=`translate(${S.x}px,${S.y}px) scale(${S.k})`;
     /* снимаем слой с GPU-кэша: браузер перерисует его в текущем масштабе — текст и фото снова чёткие */
     world.style.willChange='auto';
     loop.settled=true;
@@ -840,7 +842,7 @@ document.getElementById('zoomui').addEventListener('click',e=>{
   if(z==='fit')fit();
 });
 let pinch=null,pinching=false;
-vp.addEventListener('touchstart',e=>{if(e.touches.length===2){const[a,b]=e.touches;pinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);pinching=true;}},{passive:true});
+vp.addEventListener('touchstart',e=>{if(e.touches.length===2){const[a,b]=e.touches;pinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);pinching=true;drag=null;}},{passive:true});
 vp.addEventListener('touchmove',e=>{
   if(e.touches.length===2&&pinch){const[a,b]=e.touches,d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
     zoomAt((a.clientX+b.clientX)/2,(a.clientY+b.clientY)/2,d/pinch);pinch=d;e.preventDefault();pinching=true;}},{passive:false});
@@ -984,6 +986,8 @@ function directions(p){
   });
   return out;
 }
+/* «Фамилия Имя Отчество» → Имя; «Имя Отчество» / «Имя» → Имя */
+const firstName=n=>{const w=String(n||'').split(' ').filter(Boolean);return w[w.length>=3?1:0]||'';};
 function placeCompass(){
   const dirs=directions(cur);
   const w=sheet.offsetWidth, h=sheet.offsetHeight;
@@ -1000,7 +1004,7 @@ function placeCompass(){
     const b=document.createElement('div');
     b.className='dnav'; b.style.left=x+'px'; b.style.top=y+'px';
     b.title=q.name;
-    b.innerHTML=`${s.g}<span class="tip">${relLabel(cur,v.id)} · ${q.name.split(' ')[0]}</span>`;
+    b.innerHTML=`${s.g}<span class="tip">${relLabel(cur,v.id)} · ${esc(firstName(q.name))}</span>`;
     b.onclick=()=>open(v.id,true);
     compass.appendChild(b);
   });
